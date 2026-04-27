@@ -1,5 +1,9 @@
 {
   "version": 2,
+  "env": {
+    "ANTHROPIC_API_KEY": "@anthropic_api_key",
+    "ELEVENLABS_API_KEY": "@elevenlabs_api_key"
+  },
   "routes": [
     {
       "src": "/api/(.*)",
