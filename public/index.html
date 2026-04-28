@@ -885,6 +885,25 @@ IMPORTANT RULES:
     if (isPaused) resumeGame(); else pauseGame();
   }
 
+  const OBJECTIVE_REMINDER = "Your objective: find out what role Vinnie Matches played in the death of Marty Kowalski. New evidence places Vinnie at a private meeting with Syndicate enforcer Eddie Doyle — three days before Marty's body was found. Vinnie has never been asked about that meeting. Good luck.";
+
+  function isObjectiveQuery(lower) {
+    return lower.includes('what is my goal') ||
+           lower.includes("what's my goal") ||
+           lower.includes('remind me of my goal') ||
+           lower.includes('what am i looking for') ||
+           lower.includes("what's the objective") ||
+           lower.includes('what is the objective') ||
+           lower.includes('what do i need to find out');
+  }
+
+  function playObjectiveReminder() {
+    setMicStatus('playing', 'Narrator…');
+    fetchSpeech(OBJECTIVE_REMINDER, NARRATOR_VOICE_ID)
+      .then(blob => playAudioBlob(blob, resumeListening))
+      .catch(() => resumeListening());
+  }
+
   // ── Web Audio API — iOS-safe playback ────────────────────────────────────
   let audioCtx      = null;
   let audioUnlocked = false;
@@ -1023,6 +1042,7 @@ IMPORTANT RULES:
       stopListeningNow();
       if (lower === 'pause' || lower === 'pause.') { pauseGame(); return; }
       if (lower === 'resume' || lower === 'resume.') { resumeGame(); return; }
+      if (isObjectiveQuery(lower)) { playObjectiveReminder(); return; }
       if (transcript) setTimeout(() => sendMessage(transcript), 200);
     };
     recognition.onerror = (e) => {
