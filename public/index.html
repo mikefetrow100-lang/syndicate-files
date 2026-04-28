@@ -991,7 +991,12 @@ At the end of every response, append exactly one of these tags on a new line: [C
   const NARRATOR_VOICE_ID = 'yAaix3yQ7Pvl5T4oTpJm';
   const VINNIE_VOICE_ID   = 'tegubFP7j1VSi2UkoJMk';
 
-  const NARRATOR_INTRO = "Minneapolis. 1958. The Mississippi runs cold this time of year. Cold enough to swallow a secret. Cold enough to keep one. They found Marty Kowalski face down near the Hennepin Avenue bridge on a Tuesday morning. The coroner called it accidental. The case was closed in 48 hours. Nobody asked too many questions. Nobody except you. Your suspect is Vincent Caruso. Everyone calls him Vinnie Matches. He was the last person to see Marty alive. Find out what his role was in Marty's death.";
+  // ── Intro sequence scripts ────────────────────────────────────────────────
+  const INTRO_NARRATOR_1 = "Minneapolis. 1958. A bookie named Marty Two Sheets Kowalski turned up dead in the Mississippi River. The coroner ruled it accidental drowning. The case was closed in 48 hours by a detective later found to be on the Syndicate payroll. One man was interviewed that night — Vincent Caruso, owner of Caruso's Tap in Northeast Minneapolis. Marty's last known location. Here's what Vinnie told detectives.";
+
+  const INTRO_VINNIE_STATEMENT = "Marty came in around nine, had a couple drinks, seemed fine. Normal night. He left maybe around midnight, maybe a little after. I figured he walked home — guy liked to walk. I heard about the river the next morning and I... look, it hit me hard. Marty was a good guy. He drank more than he should have. That's just the truth of it. Terrible thing.";
+
+  const INTRO_NARRATOR_2 = "The case was closed the following afternoon. Nobody asked any more questions. Until now. This week a witness came forward placing Vinnie Matches at a private meeting with Eddie Doyle — a known Syndicate enforcer — three days before Marty's body was found in the river. Vinnie has never been asked about that meeting. You're about to change that. Your objective: find out what role Vinnie Matches played in the death of Marty Kowalski. Push him on the Eddie Doyle meeting. His original story has a hole in it — find it.";
 
   const VINNIE_OPENING_TEXT = "Yeah? Who's asking? Look, I don't know nothin' about Marty. Guy owed money all over the place. Could've been anybody.";
   const VINNIE_OPENING_LINE = "Yeah? Who's asking? Look, I don't know nothin' about Marty. Guy owed money all over the place. Could've been anybody.";
@@ -1632,27 +1637,43 @@ At the end of every response, append exactly one of these tags on a new line: [C
     setMicStatus('playing', 'Narrator…');
 
     try {
-      // Fetch narrator and Vinnie audio in parallel; music fetches independently
-      const [narratorBlob, vinnieBlob] = await Promise.all([
-        fetchSpeech(NARRATOR_INTRO, NARRATOR_VOICE_ID),
-        fetchSpeech(VINNIE_OPENING_LINE, VINNIE_VOICE_ID)
+      // Fetch all clips in parallel to minimise wait time
+      const [n1Blob, vsBlob, n2Blob, voBlob] = await Promise.all([
+        fetchSpeech(INTRO_NARRATOR_1,       NARRATOR_VOICE_ID),
+        fetchSpeech(INTRO_VINNIE_STATEMENT,  VINNIE_VOICE_ID),
+        fetchSpeech(INTRO_NARRATOR_2,       NARRATOR_VOICE_ID),
+        fetchSpeech(VINNIE_OPENING_LINE,    VINNIE_VOICE_ID),
       ]);
 
-      // Start music as narrator begins
+      // Music starts with the first narrator line
       startMusic();
 
-      playAudioBlob(narratorBlob, () => {
-        setTimeout(() => {
-          setMicStatus('playing', 'Vinnie is speaking…');
-          fadeOutMusic(4);
-          startTimer();
-          startTicking();
-          playAudioBlob(vinnieBlob, () => {
-            setMicStatus('', 'Listening…');
-            resumeListening();
-          });
-        }, 600);
-      });
+      // 1. Narrator part 1
+      setMicStatus('playing', 'Narrator…');
+      playAudioBlob(n1Blob, () => sleep(1000).then(() => {
+
+        // 2. Vinnie's 1958 statement
+        setMicStatus('playing', 'Vinnie — 1958 statement…');
+        playAudioBlob(vsBlob, () => sleep(1000).then(() => {
+
+          // 3. Narrator part 2 — begin fading music
+          fadeOutMusic(5);
+          setMicStatus('playing', 'Narrator…');
+          playAudioBlob(n2Blob, () => sleep(1500).then(() => {
+
+            // 4. Vinnie's interrogation opener — timer and clock start here
+            setMicStatus('playing', 'Vinnie is speaking…');
+            startTimer();
+            startTicking();
+            playAudioBlob(voBlob, () => {
+
+              // 5. Game is live
+              setMicStatus('', 'Listening…');
+              resumeListening();
+            });
+          }));
+        }));
+      }));
 
     } catch(e) {
       console.warn('Intro sequence error:', e);
