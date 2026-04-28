@@ -474,6 +474,20 @@
     color: #7a6a2a;
   }
 
+  .pause-btn {
+    background: transparent;
+    border: 1px solid var(--brown);
+    color: var(--smoke);
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 12px;
+    letter-spacing: 2px;
+    padding: 5px 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .pause-btn:hover { border-color: var(--red); color: var(--red); }
+
   /* SUBMIT SECTION */
   .submit-section {
     background: var(--cream);
@@ -757,6 +771,7 @@
       </svg>
     </div>
     <div class="mic-status" id="micStatus">Open the file to begin</div>
+    <button class="pause-btn" id="pauseBtn" style="display:none" onclick="handlePauseResume()">PAUSE</button>
   </div>
 
   <!-- SUBMIT -->
@@ -836,6 +851,38 @@ IMPORTANT RULES:
   ];
   let isLoading  = false;
   let gameActive = false; // true once intro sequence finishes
+  let isPaused   = false;
+
+  function stripStageDirections(text) {
+    // Remove *anything between asterisks* including the asterisks themselves
+    return text.replace(/\*[^*]*\*/g, '').replace(/\s+/g, ' ').trim();
+  }
+
+  function pauseGame() {
+    isPaused = true;
+    stopPlayback();
+    stopListeningNow();
+    micEnabled = false;
+    setMicStatus('', 'Paused');
+    document.getElementById('micBtn').classList.remove('listening');
+    const btn = document.getElementById('pauseBtn');
+    btn.textContent = 'RESUME';
+  }
+
+  function resumeGame() {
+    isPaused = false;
+    const btn = document.getElementById('pauseBtn');
+    btn.textContent = 'PAUSE';
+    // Vinnie says "You still there?" then mic reactivates
+    setMicStatus('playing', 'Vinnie is speaking…');
+    fetchSpeech("You still there?", VINNIE_VOICE_ID)
+      .then(blob => playAudioBlob(blob, resumeListening))
+      .catch(() => resumeListening());
+  }
+
+  function handlePauseResume() {
+    if (isPaused) resumeGame(); else pauseGame();
+  }
 
   // ── Web Audio API — iOS-safe playback ────────────────────────────────────
   let audioCtx      = null;
@@ -916,7 +963,7 @@ IMPORTANT RULES:
   }
 
   function startListening() {
-    if (!micEnabled || isLoading || recognition) return;
+    if (!micEnabled || isLoading || isPaused || recognition) return;
 
     recognition = new SpeechRecognition();
     recognition.continuous     = false;
@@ -925,7 +972,10 @@ IMPORTANT RULES:
 
     recognition.onresult = (e) => {
       const transcript = Array.from(e.results).map(r => r[0].transcript).join('').trim();
+      const lower = transcript.toLowerCase();
       stopListeningNow();
+      if (lower === 'pause' || lower === 'pause.') { pauseGame(); return; }
+      if (lower === 'resume' || lower === 'resume.') { resumeGame(); return; }
       if (transcript) setTimeout(() => sendMessage(transcript), 200);
     };
     recognition.onerror = (e) => {
@@ -961,7 +1011,10 @@ IMPORTANT RULES:
   }
 
   function resumeListening() {
+    if (isPaused) return; // don't restart if user explicitly paused
     micEnabled = true;
+    gameActive = true;
+    document.getElementById('pauseBtn').style.display = '';
     setMicStatus('', 'Listening…');
     startListening();
   }
@@ -1066,10 +1119,10 @@ IMPORTANT RULES:
       typing.classList.remove('visible');
       addMessage('assistant', reply);
 
-      // Speak Vinnie's reply, then re-enable mic when he's done
+      // Speak Vinnie's reply (clean dialogue only), then re-enable mic
       setMicStatus('playing', 'Vinnie is speaking…');
       try {
-        const blob = await fetchSpeech(reply, VINNIE_VOICE_ID);
+        const blob = await fetchSpeech(stripStageDirections(reply), VINNIE_VOICE_ID);
         isLoading = false;
         playAudioBlob(blob, resumeListening);
       } catch(e) {
