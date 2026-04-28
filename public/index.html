@@ -1560,7 +1560,7 @@ At the end of every response, append exactly one of these tags on a new line: [C
     if (on) setMicStatus('active', 'Listening…');
   }
 
-  const SILENCE_BEFORE_SEND = 3500; // ms of silence after last word before sending
+  const SILENCE_BEFORE_SEND = 6000; // ms of silence after last word before sending
 
   function startListening() {
     if (!micEnabled || isLoading || isPaused || recognition) return;
