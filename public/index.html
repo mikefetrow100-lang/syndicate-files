@@ -1560,36 +1560,79 @@ At the end of every response, append exactly one of these tags on a new line: [C
     if (on) setMicStatus('active', 'Listening…');
   }
 
+  const SILENCE_BEFORE_SEND = 3500; // ms of silence after last word before sending
+
   function startListening() {
     if (!micEnabled || isLoading || isPaused || recognition) return;
 
+    let accumulated  = '';  // final-result text built up across multiple chunks
+    let silenceTimer = null;
+
+    // Dispatch the accumulated transcript — checks commands, then sends to Vinnie
+    function dispatchTranscript(text) {
+      accumulated = '';
+      clearTimeout(silenceTimer);
+      silenceTimer = null;
+      stopListeningNow();
+      const lower = text.toLowerCase().trim();
+      if (lower === 'pause' || lower === 'pause.')   { pauseGame();            return; }
+      if (lower === 'resume' || lower === 'resume.') { resumeGame();            return; }
+      if (isObjectiveQuery(lower))                   { playObjectiveReminder(); return; }
+      if (isEndGameQuery(lower))                     { handleEndGame();         return; }
+      setTimeout(() => sendMessage(text), 200);
+    }
+
     recognition = new SpeechRecognition();
-    recognition.continuous     = false;
-    recognition.interimResults = false;
+    recognition.continuous     = true;   // keep listening across natural pauses
+    recognition.interimResults = true;   // needed to detect ongoing speech
     recognition.lang = 'en-US';
 
     recognition.onresult = (e) => {
-      const transcript = Array.from(e.results).map(r => r[0].transcript).join('').trim();
-      const lower = transcript.toLowerCase();
-      stopListeningNow();
-      if (lower === 'pause' || lower === 'pause.') { pauseGame(); return; }
-      if (lower === 'resume' || lower === 'resume.') { resumeGame(); return; }
-      if (isObjectiveQuery(lower)) { playObjectiveReminder(); return; }
-      if (isEndGameQuery(lower)) { handleEndGame(); return; }
-      if (transcript) setTimeout(() => sendMessage(transcript), 200);
+      // Collect only the new final chunks from this event
+      let newFinal = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        if (e.results[i].isFinal) newFinal += e.results[i][0].transcript;
+      }
+      if (!newFinal) return; // interim-only update — ignore, just keep waiting
+
+      accumulated += (accumulated ? ' ' : '') + newFinal.trim();
+      const lower = accumulated.toLowerCase().trim();
+
+      // Short commands dispatch immediately — no need to wait for silence
+      if (lower === 'pause'  || lower === 'pause.'  ||
+          lower === 'resume' || lower === 'resume.') {
+        dispatchTranscript(accumulated.trim());
+        return;
+      }
+
+      // Everything else: reset the silence timer on each new word
+      clearTimeout(silenceTimer);
+      silenceTimer = setTimeout(() => dispatchTranscript(accumulated.trim()), SILENCE_BEFORE_SEND);
     };
+
     recognition.onerror = (e) => {
+      clearTimeout(silenceTimer);
+      const pending = accumulated.trim();
+      accumulated = '';
       if (e.error !== 'aborted' && e.error !== 'no-speech') console.warn('Speech error:', e.error);
       recognition = null;
       setListeningState(false);
-      // Restart after a brief pause so it's always on
+      // If speech was cut off mid-sentence by an error, send what we have
+      if (pending && micEnabled) { setTimeout(() => sendMessage(pending), 200); return; }
       if (micEnabled && !isLoading) setTimeout(startListening, 800);
     };
+
     recognition.onend = () => {
+      clearTimeout(silenceTimer);
+      const pending = accumulated.trim();
+      accumulated = '';
       recognition = null;
       setListeningState(false);
-      // Restart if game is still active and not processing
-      if (micEnabled && !isLoading) setTimeout(startListening, 600);
+      // micEnabled=false means stopListeningNow() was called — don't restart or send
+      if (!micEnabled) return;
+      // Browser ended the session while we had text (e.g. OS timeout) — send it
+      if (pending) { setTimeout(() => sendMessage(pending), 200); return; }
+      if (!isLoading) setTimeout(startListening, 600);
     };
 
     try {
@@ -1597,6 +1640,8 @@ At the end of every response, append exactly one of these tags on a new line: [C
       setListeningState(true);
     } catch(e) {
       console.warn('Speech start error', e);
+      accumulated = '';
+      clearTimeout(silenceTimer);
       recognition = null;
       setListeningState(false);
       if (micEnabled && !isLoading) setTimeout(startListening, 1000);
