@@ -836,7 +836,10 @@ IMPORTANT RULES:
 - If someone asks "did you give Marty up" or "did you tell the Syndicate" — you can crack slightly, show emotion, but don't fully admit it unless they've already established Duluth and Frances
 - Keep responses to 3-6 sentences. You're not a talker. 
 - This is 1958. No modern references.
-- Respond only as Vinnie. No stage directions in brackets unless a very brief physical action like lighting a cigarette.`;
+- Respond only as Vinnie. No stage directions in brackets unless a very brief physical action like lighting a cigarette.
+
+TEMPERATURE TAG — REQUIRED:
+At the end of every response, append exactly one of these tags on a new line: [COLD], [WARM], or [HOT]. Use [HOT] when the player's question directly touches on Eddie Doyle, the meeting, Vinnie's motive, or his role in Marty's death. Use [WARM] when the question is getting closer — asking about the bar, Marty's last days, Vinnie's relationship with Marty, or the Syndicate. Use [COLD] for everything else. Never explain the tag. Just append it silently.`;
 
   const NARRATOR_VOICE_ID = 'yAaix3yQ7Pvl5T4oTpJm';
   const VINNIE_VOICE_ID   = 'tegubFP7j1VSi2UkoJMk';
@@ -854,8 +857,80 @@ IMPORTANT RULES:
   let isPaused   = false;
 
   function stripStageDirections(text) {
-    // Remove *anything between asterisks* including the asterisks themselves
     return text.replace(/\*[^*]*\*/g, '').replace(/\s+/g, ' ').trim();
+  }
+
+  // Strip temperature tag and return { clean, temp }
+  function extractTempTag(text) {
+    const match = text.match(/\[(HOT|WARM|COLD)\]\s*$/m);
+    const temp  = match ? match[1] : null;
+    const clean = text.replace(/\s*\[(HOT|WARM|COLD)\]\s*$/m, '').trim();
+    return { clean, temp };
+  }
+
+  // ── Web Audio API stings ──────────────────────────────────────────────────
+
+  function playWarmSting() {
+    const ctx = getAudioContext();
+    if (ctx.state === 'suspended') return;
+    // Soft two-note ascending: C4 → E4, piano-like, ~1s, quiet
+    [[261.63, 0], [329.63, 0.35]].forEach(([freq, delay]) => {
+      const osc  = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0, ctx.currentTime + delay);
+      gain.gain.linearRampToValueAtTime(0.12, ctx.currentTime + delay + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.9);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(ctx.currentTime + delay);
+      osc.stop(ctx.currentTime + delay + 0.9);
+    });
+  }
+
+  function playHotSting() {
+    const ctx = getAudioContext();
+    if (ctx.state === 'suspended') return;
+    // Three-note ascending: C4 → E4 → G4, slightly louder, ~1.5s
+    [[261.63, 0], [329.63, 0.3], [392.00, 0.65]].forEach(([freq, delay]) => {
+      const osc  = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0, ctx.currentTime + delay);
+      gain.gain.linearRampToValueAtTime(0.2, ctx.currentTime + delay + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 1.3);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(ctx.currentTime + delay);
+      osc.stop(ctx.currentTime + delay + 1.3);
+    });
+  }
+
+  function playCaseSolvedResolution() {
+    const ctx = getAudioContext();
+    if (ctx.state === 'suspended') return;
+    // Full C major resolution: C4-E4-G4-C5 arpeggio, warm and final
+    [[261.63, 0], [329.63, 0.25], [392.00, 0.5], [523.25, 0.8]].forEach(([freq, delay]) => {
+      const osc  = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0, ctx.currentTime + delay);
+      gain.gain.linearRampToValueAtTime(0.18, ctx.currentTime + delay + 0.03);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 2.5);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(ctx.currentTime + delay);
+      osc.stop(ctx.currentTime + delay + 2.5);
+    });
+  }
+
+  function playTempSting(temp) {
+    if (temp === 'WARM') playWarmSting();
+    else if (temp === 'HOT') playHotSting();
+    // COLD: silence
   }
 
   function pauseGame() {
@@ -902,6 +977,78 @@ IMPORTANT RULES:
     fetchSpeech(OBJECTIVE_REMINDER, NARRATOR_VOICE_ID)
       .then(blob => playAudioBlob(blob, resumeListening))
       .catch(() => resumeListening());
+  }
+
+  // ── End-game flow ─────────────────────────────────────────────────────────
+
+  let awaitingFinalAnswer = false;
+
+  function isEndGameQuery(lower) {
+    return lower.includes("i know what happened") ||
+           lower.includes("i'm ready to submit") ||
+           lower.includes("i am ready to submit") ||
+           lower.includes("i have my answer") ||
+           lower.includes("file my report");
+  }
+
+  function handleEndGame() {
+    stopListeningNow();
+    awaitingFinalAnswer = true;
+    const prompt = "Alright. Tell me — what was Vinnie Matches' role in Marty Kowalski's death?";
+    setMicStatus('playing', 'Narrator…');
+    fetchSpeech(prompt, NARRATOR_VOICE_ID)
+      .then(blob => playAudioBlob(blob, () => {
+        setMicStatus('active', 'Speak your answer…');
+        // One-shot listen for the final answer
+        listenForFinalAnswer();
+      }))
+      .catch(() => { awaitingFinalAnswer = false; resumeListening(); });
+  }
+
+  function listenForFinalAnswer() {
+    if (!SpeechRecognition) return;
+    const rec = new SpeechRecognition();
+    rec.continuous     = false;
+    rec.interimResults = false;
+    rec.lang = 'en-US';
+    rec.onresult = (e) => {
+      const answer = Array.from(e.results).map(r => r[0].transcript).join('').trim().toLowerCase();
+      awaitingFinalAnswer = false;
+      checkFinalAnswer(answer);
+    };
+    rec.onerror = () => { awaitingFinalAnswer = false; resumeListening(); };
+    rec.onend   = () => { if (awaitingFinalAnswer) { awaitingFinalAnswer = false; resumeListening(); } };
+    try { rec.start(); } catch(e) { awaitingFinalAnswer = false; resumeListening(); }
+  }
+
+  function checkFinalAnswer(answer) {
+    const hasTipped = answer.includes('tip') || answer.includes('told') ||
+                      answer.includes('inform') || answer.includes('gave') ||
+                      answer.includes('rat') || answer.includes('syndicate') ||
+                      answer.includes('snitch') || answer.includes('betray');
+    const hasVinnie = answer.includes('vinnie') || answer.includes('caruso') ||
+                      answer.includes(' he ') || answer.includes('him');
+
+    if (hasTipped && hasVinnie) {
+      const closing = "That's it. Vinnie Matches gave up his best friend to save his bar. He told Eddie Doyle that Marty was running — and the Syndicate made sure Marty never left Minneapolis. Vinnie lived with that guilt until 1971, when he died of a heart attack behind the same bar he'd sold his best friend to protect. Case closed.";
+      setMicStatus('playing', 'Narrator…');
+      fetchSpeech(closing, NARRATOR_VOICE_ID)
+        .then(blob => {
+          playCaseSolvedResolution();
+          playAudioBlob(blob, () => {
+            micEnabled = false;
+            setMicStatus('', 'Case closed.');
+            document.getElementById('pauseBtn').style.display = 'none';
+          });
+        })
+        .catch(() => { micEnabled = false; setMicStatus('', 'Case closed.'); });
+    } else {
+      const retry = "That's not what the evidence points to. Go back and push harder.";
+      setMicStatus('playing', 'Narrator…');
+      fetchSpeech(retry, NARRATOR_VOICE_ID)
+        .then(blob => playAudioBlob(blob, resumeListening))
+        .catch(() => resumeListening());
+    }
   }
 
   // ── Web Audio API — iOS-safe playback ────────────────────────────────────
@@ -1043,6 +1190,7 @@ IMPORTANT RULES:
       if (lower === 'pause' || lower === 'pause.') { pauseGame(); return; }
       if (lower === 'resume' || lower === 'resume.') { resumeGame(); return; }
       if (isObjectiveQuery(lower)) { playObjectiveReminder(); return; }
+      if (isEndGameQuery(lower)) { handleEndGame(); return; }
       if (transcript) setTimeout(() => sendMessage(transcript), 200);
     };
     recognition.onerror = (e) => {
@@ -1180,11 +1328,17 @@ IMPORTANT RULES:
       });
 
       const data = await response.json();
-      const reply = data.content?.[0]?.text || "...";
+      const rawReply = data.content?.[0]?.text || "...";
+
+      // Extract temperature tag before storing or displaying
+      const { clean: reply, temp } = extractTempTag(rawReply);
 
       conversationHistory.push({ role: 'assistant', content: reply });
       typing.classList.remove('visible');
       addMessage('assistant', reply);
+
+      // Fire the temperature sting immediately as Vinnie begins speaking
+      playTempSting(temp);
 
       // Speak Vinnie's reply (clean dialogue only), then re-enable mic
       setMicStatus('playing', 'Vinnie is speaking…');
