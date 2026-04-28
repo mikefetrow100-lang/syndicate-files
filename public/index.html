@@ -861,6 +861,7 @@ IMPORTANT RULES:
   function pauseGame() {
     isPaused = true;
     stopPlayback();
+    stopMusic();
     stopListeningNow();
     micEnabled = false;
     setMicStatus('', 'Paused');
@@ -890,6 +891,13 @@ IMPORTANT RULES:
   let playingSource = null;
   let queuedAudio   = null;
 
+  // Music layer — separate source + gain node so it sits under voice
+  let musicSource = null;
+  let musicGain   = null;
+
+  const MUSIC_URL    = 'https://cdn1.suno.ai/669ee7a2-3ccb-453a-a37d-7e7b56bc7ef3.mp3';
+  const MUSIC_VOLUME = 0.18; // under the voice
+
   function getAudioContext() {
     if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     return audioCtx;
@@ -907,6 +915,45 @@ IMPORTANT RULES:
 
   function stopPlayback() {
     if (playingSource) { try { playingSource.stop(); } catch(e) {} playingSource = null; }
+  }
+
+  function stopMusic() {
+    if (musicSource) { try { musicSource.stop(); } catch(e) {} musicSource = null; }
+    musicGain = null;
+  }
+
+  // Fetch and play background music, starting at volume 0 and ramping up
+  async function startMusic() {
+    try {
+      const ctx = getAudioContext();
+      const res = await fetch(MUSIC_URL);
+      if (!res.ok) throw new Error('music fetch failed');
+      const arrayBuffer = await res.arrayBuffer();
+      const decoded = await ctx.decodeAudioData(arrayBuffer);
+
+      musicGain = ctx.createGain();
+      musicGain.gain.setValueAtTime(0, ctx.currentTime);
+      musicGain.gain.linearRampToValueAtTime(MUSIC_VOLUME, ctx.currentTime + 2);
+      musicGain.connect(ctx.destination);
+
+      musicSource = ctx.createBufferSource();
+      musicSource.buffer = decoded;
+      musicSource.loop = false;
+      musicSource.connect(musicGain);
+      musicSource.start(0);
+    } catch(e) {
+      console.warn('Music error:', e);
+    }
+  }
+
+  // Fade music out over `duration` seconds then stop
+  function fadeOutMusic(duration) {
+    if (!musicGain || !musicSource) return;
+    const ctx = getAudioContext();
+    musicGain.gain.cancelScheduledValues(ctx.currentTime);
+    musicGain.gain.setValueAtTime(musicGain.gain.value, ctx.currentTime);
+    musicGain.gain.linearRampToValueAtTime(0, ctx.currentTime + duration);
+    setTimeout(stopMusic, duration * 1000 + 100);
   }
 
   // Play a blob, call onEnded when finished
@@ -1037,20 +1084,21 @@ IMPORTANT RULES:
     setMicStatus('playing', 'Narrator…');
 
     try {
-      // 1. Fetch both audio clips in parallel
+      // Fetch narrator and Vinnie audio in parallel; music fetches independently
       const [narratorBlob, vinnieBlob] = await Promise.all([
         fetchSpeech(NARRATOR_INTRO, NARRATOR_VOICE_ID),
         fetchSpeech(VINNIE_OPENING_LINE, VINNIE_VOICE_ID)
       ]);
 
-      // 2. Play narrator, then Vinnie's opener, then go live
-      setMicStatus('playing', 'Narrator…');
+      // Start music as narrator begins
+      startMusic();
+
       playAudioBlob(narratorBlob, () => {
-        // Small gap between narrator and Vinnie
         setTimeout(() => {
           setMicStatus('playing', 'Vinnie is speaking…');
+          // Fade music out over 4 seconds as Vinnie starts talking
+          fadeOutMusic(4);
           playAudioBlob(vinnieBlob, () => {
-            // Conversation is now live — activate always-on mic
             setMicStatus('', 'Listening…');
             resumeListening();
           });
@@ -1059,7 +1107,6 @@ IMPORTANT RULES:
 
     } catch(e) {
       console.warn('Intro sequence error:', e);
-      // Fall through — still activate the mic so the game works
       resumeListening();
     }
   }
