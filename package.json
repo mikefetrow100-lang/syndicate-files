@@ -19,6 +19,7 @@
   },
   "homepage": "https://github.com/mikefetrow100-lang/syndicate-files#readme",
   "dependencies": {
+    "@vercel/kv": "^3.0.0",
     "vercel": "^52.0.0"
   }
 }

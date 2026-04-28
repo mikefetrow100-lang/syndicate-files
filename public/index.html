@@ -572,6 +572,131 @@
     color: var(--red);
   }
 
+  /* TIMER */
+  .case-timer {
+    font-family: 'Courier Prime', monospace;
+    font-size: 11px;
+    color: var(--smoke);
+    letter-spacing: 2px;
+    margin-left: auto;
+    opacity: 0;
+    transition: opacity 0.5s;
+  }
+
+  .case-timer.running { opacity: 1; }
+  .case-timer.stopped { opacity: 1; color: var(--red); }
+
+  /* RESULTS OVERLAY */
+  .results-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(10,6,2,0.97);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 200;
+    padding: 20px;
+  }
+
+  .results-overlay.visible {
+    display: flex;
+    animation: fadeUp 0.8s ease;
+  }
+
+  .results-card {
+    max-width: 560px;
+    width: 100%;
+    text-align: center;
+  }
+
+  .results-stamp {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 11px;
+    letter-spacing: 6px;
+    color: var(--smoke);
+    margin-bottom: 16px;
+  }
+
+  .results-title {
+    font-family: 'Special Elite', cursive;
+    font-size: 36px;
+    color: var(--cream);
+    margin-bottom: 8px;
+  }
+
+  .results-time {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 52px;
+    color: var(--red);
+    letter-spacing: 4px;
+    margin: 12px 0 4px;
+    line-height: 1;
+  }
+
+  .results-rank {
+    font-family: 'Courier Prime', monospace;
+    font-size: 13px;
+    color: var(--aged);
+    margin-bottom: 24px;
+    font-style: italic;
+  }
+
+  .leaderboard {
+    background: rgba(61,43,31,0.3);
+    border: 1px solid rgba(61,43,31,0.6);
+    padding: 16px 20px;
+    margin-bottom: 20px;
+    text-align: left;
+  }
+
+  .leaderboard-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 11px;
+    letter-spacing: 4px;
+    color: var(--smoke);
+    margin-bottom: 12px;
+  }
+
+  .leaderboard-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 0;
+    border-bottom: 1px solid rgba(61,43,31,0.3);
+    font-family: 'Courier Prime', monospace;
+    font-size: 12px;
+    color: var(--aged);
+  }
+
+  .leaderboard-row:last-child { border-bottom: none; }
+  .leaderboard-row.highlight { color: var(--cream); }
+
+  .lb-rank { width: 28px; color: var(--smoke); }
+  .lb-time { font-weight: 700; }
+  .lb-date { font-size: 10px; color: var(--smoke); }
+
+  .results-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+  }
+
+  .results-btn {
+    background: transparent;
+    border: 1px solid var(--aged);
+    color: var(--aged);
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 13px;
+    letter-spacing: 3px;
+    padding: 10px 24px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .results-btn:hover { background: var(--aged); color: var(--ink); }
+  .results-btn.primary { border-color: var(--red); color: var(--red); }
+  .results-btn.primary:hover { background: var(--red); color: var(--cream); }
+
   /* FOOTER */
   .file-footer {
     margin-top: 12px;
@@ -749,6 +874,7 @@
     <div class="convo-header">
       <div class="recording-dot"></div>
       <div class="convo-header-text">Interrogation — Caruso's Tap, NE Minneapolis — Nov 3, 1958</div>
+      <div class="case-timer" id="caseTimer">00:00</div>
     </div>
     <div class="messages" id="messages">
     </div>
@@ -786,6 +912,24 @@
 </div>
 
 <div class="file-footer">The Syndicate Files — Minneapolis, Minnesota — Est. 1952</div>
+
+<!-- RESULTS OVERLAY -->
+<div class="results-overlay" id="resultsOverlay">
+  <div class="results-card">
+    <div class="results-stamp">The Syndicate Files — Case Closed</div>
+    <div class="results-title">Confession Obtained</div>
+    <div class="results-time" id="resultsFinalTime">--:--</div>
+    <div class="results-rank" id="resultsRank">Calculating rank…</div>
+    <div class="leaderboard" id="leaderboardContainer">
+      <div class="leaderboard-title">Fastest Confessions</div>
+      <div id="leaderboardRows"><div class="leaderboard-row" style="justify-content:center;color:var(--smoke)">Loading…</div></div>
+    </div>
+    <div class="results-actions">
+      <button class="results-btn primary" onclick="shareResult()">SHARE YOUR TIME</button>
+      <button class="results-btn" onclick="location.reload()">NEW INTERROGATION</button>
+    </div>
+  </div>
+</div>
 
 <script>
   // ============================================================
@@ -838,6 +982,9 @@ IMPORTANT RULES:
 - This is 1958. No modern references.
 - Respond only as Vinnie. No stage directions in brackets unless a very brief physical action like lighting a cigarette.
 
+CONFESSION:
+If the player has backed you into a corner with enough evidence and you have no more deflections left, you may finally crack and confess. When you confess, append the tag [CONFESSION] on a new line at the end of your response. The confession should feel earned and emotional — something like: "Alright. Alright. I told Eddie Doyle. Marty was gonna run and I... I told him. I didn't know they were gonna kill him. I swear to God I didn't know that." Only append [CONFESSION] when the player has clearly established your motive, the Eddie Doyle meeting, and is directly accusing you. Never confess prematurely.
+
 TEMPERATURE TAG — REQUIRED:
 At the end of every response, append exactly one of these tags on a new line: [COLD], [WARM], or [HOT]. Use [HOT] when the player's question directly touches on Eddie Doyle, the meeting, Vinnie's motive, or his role in Marty's death. Use [WARM] when the question is getting closer — asking about the bar, Marty's last days, Vinnie's relationship with Marty, or the Syndicate. Use [COLD] for everything else. Never explain the tag. Just append it silently.`;
 
@@ -860,12 +1007,118 @@ At the end of every response, append exactly one of these tags on a new line: [C
     return text.replace(/\*[^*]*\*/g, '').replace(/\s+/g, ' ').trim();
   }
 
-  // Strip temperature tag and return { clean, temp }
-  function extractTempTag(text) {
-    const match = text.match(/\[(HOT|WARM|COLD)\]\s*$/m);
-    const temp  = match ? match[1] : null;
-    const clean = text.replace(/\s*\[(HOT|WARM|COLD)\]\s*$/m, '').trim();
-    return { clean, temp };
+  // Strip all tags and return { clean, temp, confession }
+  function extractTags(text) {
+    const confession = /\[CONFESSION\]/m.test(text);
+    const tempMatch  = text.match(/\[(HOT|WARM|COLD)\]\s*$/m);
+    const temp       = tempMatch ? tempMatch[1] : null;
+    const clean      = text
+      .replace(/\[CONFESSION\]\s*/gm, '')
+      .replace(/\s*\[(HOT|WARM|COLD)\]\s*$/m, '')
+      .trim();
+    return { clean, temp, confession };
+  }
+
+  // ── Timer ─────────────────────────────────────────────────────────────────
+  let timerStart  = null;
+  let timerRafId  = null;
+  let finalTime   = 0; // seconds, set by stopTimer()
+
+  function startTimer() {
+    timerStart = Date.now();
+    const el = document.getElementById('caseTimer');
+    el.classList.add('running');
+    function tick() {
+      const s = Math.floor((Date.now() - timerStart) / 1000);
+      el.textContent = `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
+      timerRafId = requestAnimationFrame(tick);
+    }
+    tick();
+  }
+
+  function stopTimer() {
+    if (timerRafId) cancelAnimationFrame(timerRafId);
+    finalTime = timerStart ? Math.floor((Date.now() - timerStart) / 1000) : 0;
+    const el = document.getElementById('caseTimer');
+    el.classList.remove('running');
+    el.classList.add('stopped');
+  }
+
+  function formatDuration(s) {
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    if (m === 0) return `${sec} second${sec !== 1 ? 's' : ''}`;
+    return `${m} minute${m > 1 ? 's' : ''} and ${sec} second${sec !== 1 ? 's' : ''}`;
+  }
+
+  // ── Ticking clock ─────────────────────────────────────────────────────────
+  let tickGain    = null;
+  let tickBuf     = null;
+  let tickActive  = false;
+  let nextTickAt  = 0;
+  let tickTimerId = null;
+
+  function createTickBuffer() {
+    const ctx = getAudioContext();
+    const sr  = ctx.sampleRate;
+    const buf = ctx.createBuffer(1, Math.floor(sr * 0.04), sr);
+    const d   = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) {
+      d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 10);
+    }
+    return buf;
+  }
+
+  function scheduleTick() {
+    if (!tickActive) return;
+    const ctx = getAudioContext();
+    const src = ctx.createBufferSource();
+    src.buffer = tickBuf;
+    src.connect(tickGain);
+    src.start(nextTickAt);
+    nextTickAt += 1.0; // 60 BPM
+    const msUntilNext = (nextTickAt - ctx.currentTime - 0.12) * 1000;
+    tickTimerId = setTimeout(scheduleTick, Math.max(0, msUntilNext));
+  }
+
+  function startTicking() {
+    const ctx = getAudioContext();
+    tickBuf   = createTickBuffer();
+    tickGain  = ctx.createGain();
+    tickGain.gain.setValueAtTime(0, ctx.currentTime);
+    tickGain.gain.linearRampToValueAtTime(0.12, ctx.currentTime + 3);
+    tickGain.connect(ctx.destination);
+    tickActive = true;
+    nextTickAt = ctx.currentTime + 0.2;
+    scheduleTick();
+  }
+
+  function stopTicking() {
+    tickActive = false;
+    clearTimeout(tickTimerId);
+    if (tickGain) {
+      const ctx = getAudioContext();
+      tickGain.gain.cancelScheduledValues(ctx.currentTime);
+      tickGain.gain.setValueAtTime(tickGain.gain.value, ctx.currentTime);
+      tickGain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.15);
+      setTimeout(() => { tickGain = null; }, 300);
+    }
+  }
+
+  function duckTick() {
+    if (!tickGain) return;
+    const ctx = getAudioContext();
+    tickGain.gain.cancelScheduledValues(ctx.currentTime);
+    tickGain.gain.setValueAtTime(tickGain.gain.value, ctx.currentTime);
+    tickGain.gain.linearRampToValueAtTime(0.015, ctx.currentTime + 0.25);
+  }
+
+  function unduckTick() {
+    if (!tickGain) return;
+    const ctx = getAudioContext();
+    tickGain.gain.cancelScheduledValues(ctx.currentTime);
+    tickGain.gain.setValueAtTime(tickGain.gain.value, ctx.currentTime);
+    tickGain.gain.linearRampToValueAtTime(0.12, ctx.currentTime + 0.5);
   }
 
   // ── Web Audio API stings ──────────────────────────────────────────────────
@@ -933,10 +1186,135 @@ At the end of every response, append exactly one of these tags on a new line: [C
     // COLD: silence
   }
 
+  function playNoirResolution() {
+    const ctx = getAudioContext();
+    if (ctx.state === 'suspended') return;
+    // Slow descending Am arpeggio: A4→E4→C4→A3, fades over 5s
+    [[440, 0], [329.63, 0.5], [261.63, 1.1], [220, 1.8]].forEach(([freq, delay]) => {
+      const osc  = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0, ctx.currentTime + delay);
+      gain.gain.linearRampToValueAtTime(0.16, ctx.currentTime + delay + 0.06);
+      gain.gain.linearRampToValueAtTime(0, ctx.currentTime + delay + 5);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(ctx.currentTime + delay);
+      osc.stop(ctx.currentTime + delay + 5.1);
+    });
+  }
+
+  // ── Ending sequence ───────────────────────────────────────────────────────
+
+  function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+  async function triggerEndingSequence(elapsed) {
+    stopTicking();
+    micEnabled = false;
+    isPaused   = false;
+    document.getElementById('pauseBtn').style.display = 'none';
+    setMicStatus('', '');
+
+    await sleep(2000);
+
+    const closingText = "Case closed. Vinnie Matches gave up his best friend to save his bar. He told Eddie Doyle that Marty was running — and the Syndicate made sure Marty never left Minneapolis. Vinnie lived with that guilt until 1971, when he died of a heart attack behind the same bar he'd sold his best friend to protect. Time stopped.";
+    const timeText    = `You cracked him in ${formatDuration(elapsed)}.`;
+
+    setMicStatus('playing', 'Narrator…');
+    try {
+      const [closingBlob, timeBlob] = await Promise.all([
+        fetchSpeech(closingText, NARRATOR_VOICE_ID),
+        fetchSpeech(timeText, NARRATOR_VOICE_ID)
+      ]);
+
+      playAudioBlob(closingBlob, async () => {
+        await sleep(600);
+        playNoirResolution();
+        playAudioBlob(timeBlob, async () => {
+          await sleep(2000);
+          showResults(elapsed);
+        });
+      });
+    } catch(e) {
+      console.warn('Ending sequence TTS error:', e);
+      playNoirResolution();
+      await sleep(6000);
+      showResults(elapsed);
+    }
+  }
+
+  // ── Leaderboard ───────────────────────────────────────────────────────────
+
+  let playerFinalTime = 0;
+
+  function formatTimeDisplay(s) {
+    return `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
+  }
+
+  async function showResults(elapsed) {
+    playerFinalTime = elapsed;
+    document.getElementById('resultsFinalTime').textContent = formatTimeDisplay(elapsed);
+    document.getElementById('resultsOverlay').classList.add('visible');
+
+    try {
+      const res  = await fetch('/api/scores', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ seconds: elapsed })
+      });
+      const data = await res.json();
+      renderLeaderboard(data.leaderboard || [], data.rank, elapsed);
+    } catch(e) {
+      // Leaderboard unavailable — show time only
+      document.getElementById('resultsRank').textContent = '';
+      document.getElementById('leaderboardRows').innerHTML =
+        '<div class="leaderboard-row" style="justify-content:center;color:var(--smoke)">Leaderboard unavailable</div>';
+    }
+  }
+
+  function renderLeaderboard(scores, rank, playerSeconds) {
+    if (rank) {
+      document.getElementById('resultsRank').textContent =
+        rank === 1 ? 'New record — fastest confession on file.' :
+        `Ranked #${rank} on the leaderboard.`;
+    } else {
+      document.getElementById('resultsRank').textContent = '';
+    }
+
+    if (!scores.length) {
+      document.getElementById('leaderboardRows').innerHTML =
+        '<div class="leaderboard-row" style="justify-content:center;color:var(--smoke)">No scores yet</div>';
+      return;
+    }
+
+    const rows = scores.map((s, i) => {
+      const isPlayer = s.seconds === playerSeconds;
+      const date     = s.date ? new Date(s.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
+      return `<div class="leaderboard-row${isPlayer ? ' highlight' : ''}">
+        <span class="lb-rank">${i + 1}.</span>
+        <span class="lb-time">${formatTimeDisplay(s.seconds)}</span>
+        <span class="lb-date">${date}</span>
+      </div>`;
+    }).join('');
+    document.getElementById('leaderboardRows').innerHTML = rows;
+  }
+
+  function shareResult() {
+    const text = `I made Vinnie Matches confess in ${formatDuration(playerFinalTime)}. Can you beat me? syndicate-files.vercel.app`;
+    navigator.clipboard.writeText(text).then(() => {
+      const btn = document.querySelector('.results-btn.primary');
+      const orig = btn.textContent;
+      btn.textContent = 'COPIED!';
+      setTimeout(() => { btn.textContent = orig; }, 2000);
+    }).catch(() => {});
+  }
+
   function pauseGame() {
     isPaused = true;
     stopPlayback();
     stopMusic();
+    stopTicking();
     stopListeningNow();
     micEnabled = false;
     setMicStatus('', 'Paused');
@@ -947,9 +1325,8 @@ At the end of every response, append exactly one of these tags on a new line: [C
 
   function resumeGame() {
     isPaused = false;
-    const btn = document.getElementById('pauseBtn');
-    btn.textContent = 'PAUSE';
-    // Vinnie says "You still there?" then mic reactivates
+    document.getElementById('pauseBtn').textContent = 'PAUSE';
+    startTicking();
     setMicStatus('playing', 'Vinnie is speaking…');
     fetchSpeech("You still there?", VINNIE_VOICE_ID)
       .then(blob => playAudioBlob(blob, resumeListening))
@@ -1122,9 +1499,10 @@ At the end of every response, append exactly one of these tags on a new line: [C
     setTimeout(stopMusic, duration * 1000 + 100);
   }
 
-  // Play a blob, call onEnded when finished
+  // Play a blob, call onEnded when finished; auto-ducks ticking clock
   async function playAudioBlob(blob, onEnded) {
     stopPlayback();
+    duckTick();
     const ctx = getAudioContext();
     if (ctx.state === 'suspended') {
       queuedAudio = () => playAudioBlob(blob, onEnded);
@@ -1140,10 +1518,12 @@ At the end of every response, append exactly one of these tags on a new line: [C
       playingSource = source;
       source.onended = () => {
         if (playingSource === source) playingSource = null;
+        unduckTick();
         if (onEnded) onEnded();
       };
     } catch(e) {
       console.warn('playAudioBlob error:', e);
+      unduckTick();
       if (onEnded) onEnded();
     }
   }
@@ -1264,8 +1644,9 @@ At the end of every response, append exactly one of these tags on a new line: [C
       playAudioBlob(narratorBlob, () => {
         setTimeout(() => {
           setMicStatus('playing', 'Vinnie is speaking…');
-          // Fade music out over 4 seconds as Vinnie starts talking
           fadeOutMusic(4);
+          startTimer();
+          startTicking();
           playAudioBlob(vinnieBlob, () => {
             setMicStatus('', 'Listening…');
             resumeListening();
@@ -1330,26 +1711,38 @@ At the end of every response, append exactly one of these tags on a new line: [C
       const data = await response.json();
       const rawReply = data.content?.[0]?.text || "...";
 
-      // Extract temperature tag before storing or displaying
-      const { clean: reply, temp } = extractTempTag(rawReply);
+      const { clean: reply, temp, confession } = extractTags(rawReply);
 
       conversationHistory.push({ role: 'assistant', content: reply });
       typing.classList.remove('visible');
       addMessage('assistant', reply);
 
-      // Fire the temperature sting immediately as Vinnie begins speaking
-      playTempSting(temp);
-
-      // Speak Vinnie's reply (clean dialogue only), then re-enable mic
       setMicStatus('playing', 'Vinnie is speaking…');
-      try {
-        const blob = await fetchSpeech(stripStageDirections(reply), VINNIE_VOICE_ID);
-        isLoading = false;
-        playAudioBlob(blob, resumeListening);
-      } catch(e) {
-        console.warn('TTS error:', e);
-        isLoading = false;
-        resumeListening();
+
+      if (confession) {
+        // Confession detected — speak it, then trigger the ending
+        stopTimer();
+        const elapsed = finalTime;
+        try {
+          const blob = await fetchSpeech(stripStageDirections(reply), VINNIE_VOICE_ID);
+          isLoading = false;
+          playAudioBlob(blob, () => triggerEndingSequence(elapsed));
+        } catch(e) {
+          isLoading = false;
+          triggerEndingSequence(elapsed);
+        }
+      } else {
+        // Normal flow — temp sting + speak reply + resume mic
+        playTempSting(temp);
+        try {
+          const blob = await fetchSpeech(stripStageDirections(reply), VINNIE_VOICE_ID);
+          isLoading = false;
+          playAudioBlob(blob, resumeListening);
+        } catch(e) {
+          console.warn('TTS error:', e);
+          isLoading = false;
+          resumeListening();
+        }
       }
 
     } catch(err) {
